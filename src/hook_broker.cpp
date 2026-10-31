@@ -12,6 +12,11 @@ namespace hymission::hooks {
 void* nativeCreate(void* owner, void* source, void* destination) { return HyprlandAPI::createFunctionHook(owner, source, destination); }
 bool nativeAttach(void* hook) {
     auto* native=static_cast<CFunctionHook*>(hook);
+#if !defined(__x86_64__)
+    // The entry-branch post-processing below is x86-64 specific; on other
+    // architectures Hyprland's own trampoline is used as-is.
+    return native->hook();
+#endif
     // Probe before patching. Reuse the exact instruction boundaries Hyprland
     // uses, and retain its relocated RIP-memory operands and final return jump.
     std::vector<size_t> lengths;
