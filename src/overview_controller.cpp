@@ -13537,7 +13537,7 @@ void OverviewController::renderBackdrop() const {
 }
 
 void OverviewController::renderSelectionChrome() const {
-    const double progress = visualProgress();
+    const double progress = focusChromeOpacity(visualProgress());
     if (progress <= 0.0 || m_draggedWindowIndex)
         return;
 

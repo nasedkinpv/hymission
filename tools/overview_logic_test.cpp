@@ -714,5 +714,8 @@ int main() {
     const auto tinyHeader = reserveSearchHeader({0, 0, 120, 30});
     ok &= expectRect(tinyHeader.content, {0, 29, 120, 1}, "search reservation preserves a positive tiny viewport");
 
+    ok &= focusChromeOpacity(1.0) == 1.0 && focusChromeOpacity(0.6) == 0.0 && focusChromeOpacity(0.0) == 0.0;
+    ok &= focusChromeOpacity(0.8) > 0.49 && focusChromeOpacity(0.8) < 0.51;
+
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

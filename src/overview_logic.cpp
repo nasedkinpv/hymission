@@ -915,6 +915,10 @@ OverviewWorkspaceChangeAction resolveOverviewWorkspaceChangeAction(bool overview
     return OverviewWorkspaceChangeAction::Abort;
 }
 
+double focusChromeOpacity(double overviewProgress) {
+    return clampUnit((overviewProgress - 0.6) / 0.4);
+}
+
 WorkspaceStripAnchor parseWorkspaceStripAnchor(std::string_view value) {
     value = trimAsciiWhitespace(value);
 
