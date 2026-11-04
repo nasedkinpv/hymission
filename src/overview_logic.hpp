@@ -235,6 +235,8 @@ struct WorkspaceSwipeProgress {
 [[nodiscard]] OverviewWorkspaceChangeAction resolveOverviewWorkspaceChangeAction(bool overviewVisible, bool applyingWorkspaceTransitionCommit,
                                                                                  bool workspaceTransitionActive, bool closing,
                                                                                  bool liveFocusTriggeredWorkspaceChange, bool allowsWorkspaceSwitchInOverview);
+// Selection chrome is gone well before previews settle back into their windows.
+[[nodiscard]] double focusChromeOpacity(double overviewProgress);
 [[nodiscard]] WorkspaceStripAnchor parseWorkspaceStripAnchor(std::string_view value);
 [[nodiscard]] WorkspaceStripEmptyMode parseWorkspaceStripEmptyMode(std::string_view value);
 [[nodiscard]] std::optional<HymissionScrollMode> parseHymissionScrollMode(std::string_view value);
