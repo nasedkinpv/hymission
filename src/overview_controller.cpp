@@ -1,5 +1,5 @@
+#include "native_function_lookup.hpp"
 #include "hook_broker.hpp"
-#include "hook_lookup.hpp"
 #include "overview_controller.hpp"
 #include "hook_abi.hpp"
 #include "numeric_config.hpp"
@@ -2400,6 +2400,12 @@ OverviewController::~OverviewController() {
 bool OverviewController::initialize() {
     if (!installHooks())
         return false;
+
+    // Resolve before input/render callbacks: an executable upgrade later in
+    // this session must not trigger another filesystem-based symbol lookup.
+    m_stripRenderWindow = findFunction("renderWindow", "IHyprRenderer::renderWindow");
+    if (!m_stripRenderWindow)
+        debugLog("[hymission] failed to resolve IHyprRenderer::renderWindow for strip snapshots");
 
     auto& events = Event::bus()->m_events;
 
@@ -14097,14 +14103,7 @@ void OverviewController::renderWorkspaceStripSnapshot(WorkspaceStripEntry& entry
     const int fbHeight = std::max(1, static_cast<int>(std::ceil(thumb.height * entry.monitor->m_scale)));
     using RenderWindowFn = void (*)(Render::IHyprRenderer*, Render::CRenderContext&, PHLWINDOW, PHLMONITOR, const Render::SWindowRenderPresentation&, const Time::steady_tp&, bool, Render::eRenderPassMode, bool, bool);
 
-    static RenderWindowFn renderWindowFn = nullptr;
-    static bool           renderWindowResolved = false;
-    if (!renderWindowResolved) {
-        renderWindowResolved = true;
-        renderWindowFn = reinterpret_cast<RenderWindowFn>(findFunction("renderWindow", "IHyprRenderer::renderWindow"));
-        if (!renderWindowFn)
-            debugLog("[hymission] failed to resolve IHyprRenderer::renderWindow for strip snapshots");
-    }
+    const auto renderWindowFn = reinterpret_cast<RenderWindowFn>(m_stripRenderWindow);
 
     const auto monitor = entry.monitor;
     const auto targetWorkspace = entry.workspace ? entry.workspace : workspaceForKey(entry.workspaceId);

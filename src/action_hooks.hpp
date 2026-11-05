@@ -1,7 +1,7 @@
 #include "hook_broker.hpp"
-#include "hook_lookup.hpp"
 #include "hook_symbols.hpp"
 #pragma once
+#include "native_function_lookup.hpp"
 
 #include "overview_controller.hpp"
 

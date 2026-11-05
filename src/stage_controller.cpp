@@ -1,5 +1,5 @@
+#include "native_function_lookup.hpp"
 #include "hook_broker.hpp"
-#include "hook_lookup.hpp"
 #include "stage_controller.hpp"
 #include "numeric_config.hpp"
 #include "stage_logic.hpp"
