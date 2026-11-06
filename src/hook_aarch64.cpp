@@ -24,7 +24,12 @@
     whose target is a function entry, and RET X17 for jumps, because the resume address is in the
     middle of a function where no landing pad exists and RET is not subject to BTI.
 
+    X17 must not be live across those jumps, so an entry whose displaced instructions name X17 is
+    refused. At a function entry X17 holds nothing (see above), so only those instructions could
+    make it live.
+
     A later branch back into the displaced bytes cannot be detected, the same limit as on x86.
+    RET X17 would also trip a guarded control stack (GCS), which Hyprland does not enable.
 */
 namespace hymission::hooks::aarch64 {
 namespace {
@@ -63,6 +68,7 @@ bool isBtiGuarded(uintptr_t address) {
 }
 
 // The page stays executable throughout: another thread may be running code on it.
+// True once the code is written, even if the page could not be made read-only again.
 bool writeCode(void* target, const void* code, size_t size) {
     const auto pageSize = static_cast<uintptr_t>(sysconf(_SC_PAGE_SIZE));
     const auto address = reinterpret_cast<uintptr_t>(target);
@@ -71,9 +77,9 @@ bool writeCode(void* target, const void* code, size_t size) {
     const int protection = PROT_READ | PROT_EXEC | (isBtiGuarded(address) ? PROT_BTI : 0);
     if (mprotect(reinterpret_cast<void*>(start), length, PROT_READ | PROT_WRITE | PROT_EXEC) != 0) return false;
     std::memcpy(target, code, size);
-    const bool restored = mprotect(reinterpret_cast<void*>(start), length, protection) == 0;
+    mprotect(reinterpret_cast<void*>(start), length, protection);
     __builtin___clear_cache(static_cast<char*>(target), static_cast<char*>(target) + size);
-    return restored;
+    return true;
 }
 
 struct Assembler {
@@ -128,6 +134,13 @@ std::vector<uint32_t> entryPatch(uint32_t first, bool landingPad, void* destinat
     return patch;
 }
 
+// Bits 4:0 hold the destination (or a stored register) of every non-branch instruction, and
+// bits 14:10 the second register of a load/store pair. Branches use them for offsets.
+bool mayWriteX17(uint32_t insn) {
+    if ((insn & 0x1C000000) == 0x14000000) return false; // branches, exceptions, system
+    return (insn & 0x1F) == 17 || ((insn & 0x3A000000) == 0x28000000 && ((insn >> 10) & 0x1F) == 17);
+}
+
 // Moved literals would be executed as code, so never relocate over another hook's patch.
 bool isPatched(const uint32_t* source) {
     return (source[0] == LDR_X16_8 && source[1] == BR_X16) || (isBti(source[0]) && source[1] == LDR_X16_8 && source[2] == BR_X16);
@@ -151,6 +164,7 @@ std::vector<uint8_t> relocate(const uint32_t* source, size_t count, uint64_t add
         const uint32_t insn = source[i];
         const uint64_t pc = reinterpret_cast<uint64_t>(source) + i * 4;
         const bool last = i + 1 == count;
+        if (mayWriteX17(insn)) return {};
         if ((insn & 0x9F000000) == 0x10000000) { // ADR
             const uint64_t imm = ((insn >> 29) & 3) | (((insn >> 5) & 0x7FFFF) << 2);
             out.emitLoad(0x58000000 | (insn & 0x1F), pc + signExtend(imm, 21));
@@ -231,8 +245,7 @@ bool attach(Hook* hook) {
 
 void detach(Hook* hook) {
     if (!hook->attached) return;
-    writeCode(hook->source, hook->saved, hook->words * 4);
-    hook->attached = false;
+    if (writeCode(hook->source, hook->saved, hook->words * 4)) hook->attached = false;
 }
 
 void* original(const Hook* hook) { return hook->attached ? hook->trampoline : nullptr; }
@@ -240,7 +253,8 @@ void* original(const Hook* hook) { return hook->attached ? hook->trampoline : nu
 void destroy(Hook* hook) {
     if (!hook) return;
     detach(hook);
-    if (hook->trampoline) munmap(hook->trampoline, hook->trampolineSize);
+    // A source that still jumps here keeps its trampoline mapped.
+    if (hook->trampoline && !hook->attached) munmap(hook->trampoline, hook->trampolineSize);
     delete hook;
 }
 } // namespace hymission::hooks::aarch64

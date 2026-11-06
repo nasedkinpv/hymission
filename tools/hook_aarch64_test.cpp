@@ -129,6 +129,12 @@ asm(R"(
 )" FN(hookTooShort) R"(
     add w0, w0, #7
     ret
+)" FN(hookX17) R"(
+    mov x17, #3
+    add w0, w0, w17
+    nop
+    nop
+    ret
 )" FN(hookBranchNotLast) R"(
     add w0, w0, #1
     b 1f
@@ -146,6 +152,7 @@ extern "C" {
 int hookPlain(int); int hookAdr(int); int hookAdrp(int); int hookLdrX(int); int hookLdrW(int); int hookLdrsw(int);
 int hookLdrD(int); int hookLdrQ(int); int hookPrfm(int); int hookBcond(int); int hookCbz(int); int hookTbz(int);
 int hookB(int); int hookBl(int); int hookBti(int); int hookPaciasp(int); int hookTooShort(int); int hookBranchNotLast(int);
+int hookX17(int);
 }
 
 Fn g_original = nullptr;
@@ -259,6 +266,7 @@ int main() {
     check(hookPaciasp, {0, 5});
     refuses(hookTooShort, 1, 8);
     refuses(hookBranchNotLast, 1, 2);
+    refuses(hookX17, 1, 4);
     landingPads();
     doubleHook();
     branchRange();
